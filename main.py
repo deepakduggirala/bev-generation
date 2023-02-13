@@ -21,8 +21,18 @@ def main(scene_idx, sample_idx):
     dataroot = '/Users/deepakduggirala/Documents/autonomous-robotics/v1.0-mini'  # os.path.expandvars(config.dataroot)
     nuscenes = NuScenes('v1.0-mini', dataroot, verbose=False)
 
-    bev_gt_map = generate_gt_bev_map(nuscenes, scene_idx, sample_idx)
-    bev_seg_map, nusc_idx_to_color = generate_bev_seg_map(nuscenes, scene_idx, sample_idx)
+    scene = nuscenes.scene[scene_idx]
+    samples = list(nusc_utils.sample_gen(nuscenes, scene))
+    sample = samples[sample_idx]
+
+    results_dir = Path(f'results-linear-linear-static/scene-{scene_idx}/sample-{sample_idx}').resolve()
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    bev_gt_map = generate_gt_bev_map(nuscenes, scene, sample)
+    bev_seg_map, nusc_idx_to_color = generate_bev_seg_map(nuscenes, sample,
+                                                          seg_cls_intp_method='linear',
+                                                          plot_results=True,
+                                                          results_dir=results_dir)
 
     bev_gt_map_cmp = utils.make_composite(bev_gt_map)
     bev_seg_map_cmp = utils.make_composite(bev_seg_map)
@@ -52,8 +62,6 @@ def main(scene_idx, sample_idx):
     ax.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
     ax.axis('off')
 
-    results_dir = Path(f'results-2/scene-{scene_idx}/sample-{sample_idx}').resolve()
-    results_dir.mkdir(parents=True, exist_ok=True)
     out_path = str(results_dir / 'bev.png')
     fig.savefig(out_path, dpi=300, bbox_inches='tight')
 

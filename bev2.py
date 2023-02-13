@@ -258,17 +258,29 @@ class BEV:
         return bev_seg_map
 
 
-def generate_bev_seg_map(nuscenes, sample, depth_intp_method='linear', seg_cls_intp_method='linear'):
-    # scene = nuscenes.scene[scene_idx]
-    # samples = list(nusc_utils.sample_gen(nuscenes, scene))
-    # sample = samples[sample_idx]
-
+def generate_bev_seg_map(nuscenes, sample, depth_intp_method='linear', seg_cls_intp_method='linear', plot_results=False,
+                         results_dir=None):
     bev = BEV(nuscenes, sample)
     bev.load_cam_data(cam='CAM_FRONT')
-    depth_map, seg_map = bev.interpolate_depth_seg(
-        depth_intp_method=depth_intp_method,
-        seg_cls_intp_method=seg_cls_intp_method
-    )
+
+    image_points_fov, cam_points_fov, idx = bev.project_lidar_to_image_plane()
+    depth_map = bev.interpolate_depth(xy=image_points_fov, z=cam_points_fov[:, 2], method=depth_intp_method)
+
+    lidar_seg_fov = bev.lidar_seg[idx]
+    _seg_cls = bev.interpolate_seg_cls(xy=image_points_fov, c=lidar_seg_fov, method=seg_cls_intp_method)
+    # only keep lidar points where depth is interpolated (not NaN)
+    seg_map = np.where(np.isnan(depth_map), 0, _seg_cls)
+
+    # depth_map, seg_map = bev.interpolate_depth_seg(
+    #     depth_intp_method=depth_intp_method,
+    #     seg_cls_intp_method=seg_cls_intp_method
+    # )
+    if plot_results:
+        bev.visualize_depth_map(image_points_fov, cam_points_fov, depth_map,
+                                out_path=str(results_dir / 'depth.png'))
+        bev.visualize_segmentation_map(image_points_fov, lidar_seg_fov, seg_map,
+                                       out_path=str(results_dir / 'segmentation.png'))
+
     bev_seg_map = bev.generate_BEV_projection(depth_map, seg_map)
     bev_seg_map_intp = interpolate_static_classes_bev(bev_seg_map)
     return bev_seg_map_intp, bev.nusc_idx_to_color
