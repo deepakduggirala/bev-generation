@@ -5,9 +5,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 from nuscenes.nuscenes import NuScenes
+from sklearn.neighbors import KNeighborsClassifier
 
 import nusc_utils
 import utils
+
+
+def interpolate_static_classes_bev(bev_seg_map):
+    nc, H, W = bev_seg_map.shape
+    xx, yy = np.meshgrid(np.arange(H), np.arange(W))
+    xi = np.hstack((yy.reshape(-1, 1), xx.reshape(-1, 1)))
+
+    for idx in nusc_utils.NUSC_LIDAR_STATIC_CLASSES:
+        xx, yy = np.where(bev_seg_map[idx])
+        xy = np.hstack((xx.reshape(-1, 1), yy.reshape(-1, 1)))
+        c = bev_seg_map[idx, xx, yy].flatten()
+        intp_cls = scipy.interpolate.griddata(
+            points=xy,
+            values=c,
+            xi=xi,
+            method='linear'
+        )
+        bev_seg_map[idx, :, :] = intp_cls.reshape(H, W)
+        return bev_seg_map
 
 
 class BEV:
@@ -81,33 +101,44 @@ class BEV:
 
         return image_points_fov, cam_points_fov, idx
 
-    def interpolate_depth(self, xy, z):
+    def interpolate_depth(self, xy, z, method='linear'):
         """
         :param xy: image_points_fov
         :param z: cam_points_fov[:,2] # z coordinate (depth of lidar points)
+        :param method: {'linear', 'nearest', 'cubic'}
         :return: interpolated depth
         """
         xx, yy = np.meshgrid(np.arange(self.H), np.arange(self.W))
         xi = np.hstack((yy.reshape(-1, 1), xx.reshape(-1, 1)))
         values = z
-        intp_depth = scipy.interpolate.griddata(points=xy, values=values, xi=xi, method='linear')
+        intp_depth = scipy.interpolate.griddata(points=xy, values=values, xi=xi, method=method)
         depth = np.nan_to_num(intp_depth).reshape(self.W, self.H).T  # depth map
         return depth
 
-    def interpolate_seg_cls(self, xy, c):
+    def interpolate_seg_cls(self, xy, c, method='linear'):
         """
         :param xy: image_points_fov
         :param c: the corresponding segmentation class index for each lidar point in the xy
+        :param method: {'linear', 'nearest', 'cubic', 'knn'}
         :return:
         """
+
         xx, yy = np.meshgrid(np.arange(self.H), np.arange(self.W))
         xi = np.hstack((yy.reshape(-1, 1), xx.reshape(-1, 1)))
-        intp_cls = scipy.interpolate.griddata(
-            points=xy,
-            values=c,
-            xi=xi,
-            method='linear'
-        )
+
+        # Class Interpolation
+        # Use KNN to classify grid points based on given lidar segmentation
+        if method == 'knn':
+            neigh = KNeighborsClassifier(n_neighbors=5)
+            neigh.fit(xy, c)
+            intp_cls = neigh.predict(xi)
+        else:
+            intp_cls = scipy.interpolate.griddata(
+                points=xy,
+                values=c,
+                xi=xi,
+                method=method
+            )
 
         # merge / remove classes to form a smaller set of classes
         cls_merged = np.array([self.cls_idx_merge_map.get(cls_idx, 0) for cls_idx in intp_cls])
@@ -203,14 +234,14 @@ class BEV:
         else:
             plt.show()
 
-    def interpolate_depth_seg(self, cam='CAM_FRONT'):
+    def interpolate_depth_seg(self, cam='CAM_FRONT', depth_intp_method='linear', seg_cls_intp_method='linear'):
         self.load_cam_data(cam)
 
         image_points_fov, cam_points_fov, idx = self.project_lidar_to_image_plane()
-        depth_map = self.interpolate_depth(xy=image_points_fov, z=cam_points_fov[:, 2])
+        depth_map = self.interpolate_depth(xy=image_points_fov, z=cam_points_fov[:, 2], method=depth_intp_method)
 
         lidar_seg_fov = self.lidar_seg[idx]
-        _seg_cls = self.interpolate_seg_cls(xy=image_points_fov, c=lidar_seg_fov)
+        _seg_cls = self.interpolate_seg_cls(xy=image_points_fov, c=lidar_seg_fov, method=seg_cls_intp_method)
         # only keep lidar points where depth is interpolated (not NaN)
         seg_map = np.where(np.isnan(depth_map), 0, _seg_cls)
 
@@ -227,16 +258,20 @@ class BEV:
         return bev_seg_map
 
 
-def generate_bev_seg_map(nuscenes, sample):
+def generate_bev_seg_map(nuscenes, sample, depth_intp_method='linear', seg_cls_intp_method='linear'):
     # scene = nuscenes.scene[scene_idx]
     # samples = list(nusc_utils.sample_gen(nuscenes, scene))
     # sample = samples[sample_idx]
 
     bev = BEV(nuscenes, sample)
     bev.load_cam_data(cam='CAM_FRONT')
-    depth_map, seg_map = bev.interpolate_depth_seg()
+    depth_map, seg_map = bev.interpolate_depth_seg(
+        depth_intp_method=depth_intp_method,
+        seg_cls_intp_method=seg_cls_intp_method
+    )
     bev_seg_map = bev.generate_BEV_projection(depth_map, seg_map)
-    return bev_seg_map, bev.nusc_idx_to_color
+    bev_seg_map_intp = interpolate_static_classes_bev(bev_seg_map)
+    return bev_seg_map_intp, bev.nusc_idx_to_color
 
 
 def main():

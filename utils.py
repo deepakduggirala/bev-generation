@@ -1,3 +1,4 @@
+from io import BytesIO
 import cv2
 import numpy as np
 from shapely import affinity
@@ -156,7 +157,6 @@ def compute_iou(pred, labels):
 
 
 def transform_pred_and_labels(bev_seg_map, bev_gt_map):
-
     """
     # remove other_flat (bev_seg_map - 2nd), ped_crossing - (bev_gt_map - 2nd)
     # remove terrain (bev_seg_map - 4th), carpark - (bev_gt_map - 4th)
@@ -182,3 +182,14 @@ def transform_pred_and_labels(bev_seg_map, bev_gt_map):
     labels = labels[class_idxs] * ~mask
 
     return pred, labels
+
+
+def array_to_bytes(x: np.ndarray) -> bytes:
+    np_bytes = BytesIO()
+    np.save(np_bytes, x, allow_pickle=True)
+    return np_bytes.getvalue()
+
+
+def bytes_to_array(b: bytes) -> np.ndarray:
+    np_bytes = BytesIO(b)
+    return np.load(np_bytes, allow_pickle=True)

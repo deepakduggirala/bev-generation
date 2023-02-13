@@ -24,6 +24,7 @@ NUSCENES_CLASS_NAMES = [
 NUSC_LIDAR_CLASS_NAMES = ['driveable_surface', 'other_flat', 'sidewalk', 'terrain', 'car', 'truck',
                           'bus', 'trailer', 'construction_vehicle', 'pedestrian', 'motorcycle',
                           'bicycle', 'traffic_cone', 'barrier']
+NUSC_LIDAR_STATIC_CLASSES = [0, 1, 2, 3]
 
 LABEL_RENAME = {
     'movable_object.barrier': 'barrier',
