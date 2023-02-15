@@ -282,8 +282,8 @@ def generate_bev_seg_map(nuscenes, sample, depth_intp_method='linear', seg_cls_i
                                        out_path=str(results_dir / 'segmentation.png'))
 
     bev_seg_map = bev.generate_BEV_projection(depth_map, seg_map)
-    bev_seg_map_intp = interpolate_static_classes_bev(bev_seg_map)
-    return bev_seg_map_intp, bev.nusc_idx_to_color
+    # bev_seg_map_intp = interpolate_static_classes_bev(bev_seg_map)
+    return bev_seg_map, bev.nusc_idx_to_color
 
 
 def main():

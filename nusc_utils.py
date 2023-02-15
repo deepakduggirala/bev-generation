@@ -104,7 +104,7 @@ def get_intrinsics(nuscenes, camera_data):
 
 
 def load_lidarseg(nuscenes, lidar_token):
-    lidarseg_filename = nuscenes.dataroot / Path(f'lidarseg/v1.0-mini/{lidar_token}_lidarseg.bin')
+    lidarseg_filename = nuscenes.dataroot / Path(f'lidarseg/{nuscenes.version}/{lidar_token}_lidarseg.bin')
     with open(lidarseg_filename, 'rb') as f:
         lidarseg = np.fromfile(f, dtype=np.uint8)
     return lidarseg
@@ -141,7 +141,8 @@ def get_layer_mask(nuscenes, polygons, sample_data, extents, resolution):
                     dtype=np.uint8)
 
     # Find all polygons which intersect with the area of interest
-    for polygon in polygons.geometries.take(polygons.query(map_patch)):
+    # for polygon in polygons.geometries.take(polygons.query(map_patch)):
+    for polygon in polygons.query(map_patch):
         polygon = polygon.intersection(map_patch)
 
         # Transform into map coordinates
