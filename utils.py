@@ -166,6 +166,14 @@ def transform_pred_and_labels(bev_seg_map, bev_gt_map):
     :param bev_gt_map: (15, 196, 200)
     :return: (12, 196, 200), (12, 196, 200)
     """
+    
+
+    pred = transform_pred(bev_seg_map)
+    labels = transform_label(bev_gt_map)
+
+    return pred, labels
+
+def transform_pred(bev_seg_map):
     num_classes = 14
     class_filter = np.ones((num_classes,))
     class_filter[1] = 0
@@ -175,13 +183,20 @@ def transform_pred_and_labels(bev_seg_map, bev_gt_map):
     # reshape and convert to bool
     pred = bev_seg_map[class_idxs, :196, :]
     pred = pred > 0.5
+    return pred
+
+def transform_label(bev_gt_map):
+    num_classes = 14
+    class_filter = np.ones((num_classes,))
+    class_filter[1] = 0
+    class_filter[3] = 0
+    class_idxs = np.where(class_filter)[0]
 
     # flip around and apply visible mask to ground truths
     labels = np.flip(bev_gt_map, 1)
     mask = labels[-1]
     labels = labels[class_idxs] * ~mask
-
-    return pred, labels
+    return labels
 
 
 def array_to_bytes(x: np.ndarray) -> bytes:
