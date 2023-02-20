@@ -257,6 +257,17 @@ class BEV:
 
         return bev_seg_map
 
+    def generate_BEV_sparse_projection(self, image_points_fov, cam_points_fov, lidar_seg_fov):
+        bev_seg_map = np.zeros((14, 200, 200))
+        for i, cls_label in enumerate(nusc_utils.NUSC_LIDAR_CLASS_NAMES):
+            cls_idx = self.lidarseg_new_name2idx_mapping[cls_label]
+            idx = np.where(lidar_seg_fov == cls_idx)[0]
+            u = image_points_fov[idx][:, 0]
+            z = cam_points_fov[idx, 2]
+            bev_seg_map[i, :, :] = self.project_to_bev(u, z)
+
+        return bev_seg_map
+
 
 def generate_bev_seg_map(nuscenes, sample, depth_intp_method='linear', seg_cls_intp_method='linear', plot_results=False,
                          results_dir=None):
@@ -283,6 +294,20 @@ def generate_bev_seg_map(nuscenes, sample, depth_intp_method='linear', seg_cls_i
 
     bev_seg_map = bev.generate_BEV_projection(depth_map, seg_map)
     # bev_seg_map_intp = interpolate_static_classes_bev(bev_seg_map)
+    return bev_seg_map, bev.nusc_idx_to_color
+
+
+def generate_bev_sparse_seg_map(nuscenes, sample, depth_intp_method='linear', seg_cls_intp_method='linear',
+                                plot_results=False,
+                                results_dir=None):
+    bev = BEV(nuscenes, sample)
+    bev.load_cam_data(cam='CAM_FRONT')
+
+    image_points_fov, cam_points_fov, idx = bev.project_lidar_to_image_plane()
+    lidar_seg_fov = bev.lidar_seg[idx]
+
+    bev_seg_map = bev.generate_BEV_sparse_projection(image_points_fov, cam_points_fov, lidar_seg_fov)
+
     return bev_seg_map, bev.nusc_idx_to_color
 
 
