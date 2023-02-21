@@ -10,7 +10,7 @@ import numpy as np
 from nuscenes.nuscenes import NuScenes
 
 from bev_gt import generate_gt_bev_map
-from bev2 import generate_bev_seg_map
+from bev2 import generate_bev_seg_map, generate_bev_sparse_seg_map
 
 import utils
 import nusc_utils
@@ -25,14 +25,14 @@ def main(scene_idx, sample_idx):
     samples = list(nusc_utils.sample_gen(nuscenes, scene))
     sample = samples[sample_idx]
 
-    results_dir = Path(f'results-linear-linear-static/scene-{scene_idx}/sample-{sample_idx}').resolve()
+    results_dir = Path(f'results-sparse-lidar/scene-{scene_idx}/sample-{sample_idx}').resolve()
     results_dir.mkdir(parents=True, exist_ok=True)
 
     bev_gt_map = generate_gt_bev_map(nuscenes, scene, sample)
-    bev_seg_map, nusc_idx_to_color = generate_bev_seg_map(nuscenes, sample,
-                                                          seg_cls_intp_method='linear',
-                                                          plot_results=True,
-                                                          results_dir=results_dir)
+    bev_seg_map, nusc_idx_to_color = generate_bev_sparse_seg_map(nuscenes, sample,
+                                                                 seg_cls_intp_method='linear',
+                                                                 plot_results=True,
+                                                                 results_dir=results_dir)
 
     bev_gt_map_cmp = utils.make_composite(bev_gt_map)
     bev_seg_map_cmp = utils.make_composite(bev_seg_map)
