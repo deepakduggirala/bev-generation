@@ -9,6 +9,8 @@ import nusc_utils
 from bev_gt import generate_gt_bev_map
 from utils import array_to_bytes
 
+import warnings
+warnings.filterwarnings("ignore")
 
 def main():
     start = time.perf_counter()
