@@ -48,6 +48,24 @@ def process_sample_data(nuscenes, map_data, sample_data, lidar, config):
     # Image.fromarray(labels.astype(np.int32), mode='I').save(output_path)
 
 
+def process_sample_data_without_vis_mask(nuscenes, map_data, sample_data, config):
+    # Render static road geometry masks
+    map_masks = nusc_utils.get_map_masks(nuscenes,
+                                         map_data,
+                                         sample_data,
+                                         config.map_extents,
+                                         config.map_resolution)
+
+    # Render dynamic object masks
+    obj_masks = nusc_utils.get_object_masks(nuscenes,
+                                            sample_data,
+                                            config.map_extents,
+                                            config.map_resolution)
+    masks = np.concatenate([map_masks, obj_masks], axis=0)
+
+    return masks
+
+
 def load_map_data(dataroot, location):
     # Load the NuScenes map object
     nusc_map = NuScenesMap(dataroot, location)
@@ -110,3 +128,21 @@ def generate_gt_bev_map(nuscenes, scene, sample):
 
     camera_data = nuscenes.get('sample_data', sample['data']['CAM_FRONT'])
     return process_sample_data(nuscenes, scene_map_data, camera_data, lidar_pcl, config)
+
+
+def generate_gt_bev_360_maps_scene(nuscenes, scene):
+    log = nuscenes.get('log', scene['log_token'])
+    location = log['location']
+    scene_map_data = load_map_data(nuscenes.dataroot, location)
+    bev_maps = []
+    for sample in nusc_utils.sample_gen(nuscenes, scene):
+        bev_map = generate_gt_bev_360_map_sample(nuscenes, sample, scene_map_data)
+        bev_maps.append(bev_map)
+    return bev_maps
+
+
+def generate_gt_bev_360_map_sample(nuscenes, sample, scene_map_data):
+    Config = namedtuple('Config', ['map_extents', 'map_resolution'])
+    config = Config(map_extents=[-25., -50., 25., 50.], map_resolution=0.25)
+    camera_data = nuscenes.get('sample_data', sample['data']['CAM_FRONT'])
+    return process_sample_data_without_vis_mask(nuscenes, scene_map_data, camera_data, config)
